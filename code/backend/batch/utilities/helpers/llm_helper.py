@@ -89,7 +89,7 @@ class LLMHelper:
             return AzureOpenAIEmbeddings(
                 azure_endpoint=self.env_helper.AZURE_OPENAI_ENDPOINT,
                 api_key=self.env_helper.OPENAI_API_KEY,
-                azure_deployment=self.embedding_model,
+                azure_deployment=self.env_helper.AZURE_OPENAI_EMBEDDING_MODEL_NAME,
                 chunk_size=1,
             )
         else:

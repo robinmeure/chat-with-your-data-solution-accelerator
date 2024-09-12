@@ -42,3 +42,25 @@ export async function getAssistantTypeApi() {
       return null; // Return null or some default value in case of error
     }
   }
+
+  export async function uploadDocument()
+  {
+    try {
+        const response = await fetch("/api/upload", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+        });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const config = await response.json(); // Parse JSON response
+      return config;
+    } catch (error) {
+      console.error('Failed to fetch configuration:', error);
+      return null; // Return null or some default value in case of error
+    }
+  }

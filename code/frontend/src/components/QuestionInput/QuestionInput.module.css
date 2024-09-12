@@ -90,6 +90,46 @@
     height: 70px;
   }
 
+  .promptGenerateContainer {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    padding: 5px 16px;
+    gap: 4px;
+    position: absolute;
+    width: 161px;
+    height: 32px;
+    left: calc(80% - 161px/2 + 25.8px);
+    bottom: 116px;
+    border: 1px solid #D1D1D1;
+    border-radius: 16px;
+}
+
+.promptGenerateIcon {
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+}
+
+.promptGenerateText {
+    width: 103px;
+    height: 20px;
+    font-family: "Segoe UI";
+    font-style: normal;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 20px;
+    display: flex;
+    align-items: center;
+    color: #242424;
+    flex: none;
+    order: 0;
+    flex-grow: 0;
+}
+
 
   /* High contrast mode specific styles */
 @media screen and (-ms-high-contrast: active), (forced-colors: active) {

@@ -1,0 +1,10 @@
+### Post Conversation
+POST http://127.0.0.1:5050/api/conversation
+content-type: application/json
+
+
+{"messages":[{"role":"user","content":"hello"}],"conversation_id":"b7d66e90-c024-42be-8ea4-c67d35b91c6b"}
+
+### Get Langchain
+GET http://127.0.0.1:5050/api/embed
+content-type: application/json

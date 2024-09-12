@@ -32,6 +32,7 @@ import { QuestionInput } from "../../components/QuestionInput";
 import Cards from "./Cards_contract/Cards";
 
 const Chat = () => {
+  const [selectedPrompt, setSelectedPrompt] = useState("");
   const lastQuestionRef = useRef<string>("");
   const chatMessageStreamEnd = useRef<HTMLDivElement | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -62,6 +63,7 @@ const Chat = () => {
   const [assistantType, setAssistantType] = useState("");
   const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
   const [isTextToSpeachActive , setIsTextToSpeachActive] = useState(false);
+
 
   const makeApiRequest = async (question: string) => {
     lastQuestionRef.current = question;
@@ -219,6 +221,15 @@ const Chat = () => {
     setIsLoading(false);
   };
 
+  const selectedPromptClick = (data:string) =>
+  {
+    setSelectedPrompt(data);
+  }
+
+  const openPromptGeneratorClick = () => {
+      setAssistantType('contract assistant');
+  };
+
   useEffect(
     () => {
       chatMessageStreamEnd.current?.scrollIntoView({ behavior: "smooth" })
@@ -282,7 +293,7 @@ const Chat = () => {
                 <>
                   <h1 className={styles.chatEmptyStateTitle}>Contract Summarizer</h1>
                   <h2 className={styles.chatEmptyStateSubtitle}>AI-Powered assistant for simplified summarization</h2>
-                  <Cards />
+                  <Cards onEvent={selectedPromptClick}/>
                 </>
               ) : assistantType === 'default' ? (
                 <>
@@ -381,6 +392,8 @@ const Chat = () => {
                 </span>
               </Stack>
             )}
+
+
             <BroomRegular
               className={`${styles.clearChatBroom} ${styles.mobileclearChatBroom}`}
               style={{
@@ -398,7 +411,9 @@ const Chat = () => {
               role="button"
               tabIndex={0}
             />
+
             <QuestionInput
+              openPromptGeneratorClick={openPromptGeneratorClick}
               clearOnSend
               placeholder="Type a new question..."
               disabled={isLoading}
@@ -411,7 +426,7 @@ const Chat = () => {
               isRecognizing={isRecognizing}
               setRecognizedText={setRecognizedText}
               isTextToSpeachActive = {isTextToSpeachActive}
-            />
+              prompt={selectedPrompt} />
           </Stack>
         </div>
         {answers.length > 0 && isCitationPanelOpen && activeCitation && (

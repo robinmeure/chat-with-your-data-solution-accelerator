@@ -69,9 +69,13 @@ class EnvHelper:
         self.AZURE_SEARCH_FIELDS_METADATA = os.getenv(
             "AZURE_SEARCH_FIELDS_METADATA", "metadata"
         )
-        self.AZURE_SEARCH_SOURCE_COLUMN = os.getenv("AZURE_SEARCH_SOURCE_COLUMN", "source")
+        self.AZURE_SEARCH_SOURCE_COLUMN = os.getenv(
+            "AZURE_SEARCH_SOURCE_COLUMN", "source"
+        )
         self.AZURE_SEARCH_CHUNK_COLUMN = os.getenv("AZURE_SEARCH_CHUNK_COLUMN", "chunk")
-        self.AZURE_SEARCH_OFFSET_COLUMN = os.getenv("AZURE_SEARCH_OFFSET_COLUMN", "offset")
+        self.AZURE_SEARCH_OFFSET_COLUMN = os.getenv(
+            "AZURE_SEARCH_OFFSET_COLUMN", "offset"
+        )
         self.AZURE_SEARCH_CONVERSATIONS_LOG_INDEX = os.getenv(
             "AZURE_SEARCH_CONVERSATIONS_LOG_INDEX", "conversations"
         )
@@ -88,9 +92,7 @@ class EnvHelper:
         # Azure OpenAI
         self.AZURE_OPENAI_RESOURCE = os.getenv("AZURE_OPENAI_RESOURCE", "")
         self.AZURE_OPENAI_MODEL = os.getenv("AZURE_OPENAI_MODEL", "")
-        self.AZURE_OPENAI_MODEL_NAME = os.getenv(
-            "AZURE_OPENAI_MODEL_NAME", "gpt-35-turbo"
-        )
+        self.AZURE_OPENAI_MODEL_NAME = os.getenv("AZURE_OPENAI_MODEL_NAME", "")
         self.AZURE_OPENAI_VISION_MODEL = os.getenv("AZURE_OPENAI_VISION_MODEL", "gpt-4")
         self.AZURE_OPENAI_TEMPERATURE = os.getenv("AZURE_OPENAI_TEMPERATURE", "0")
         self.AZURE_OPENAI_TOP_P = os.getenv("AZURE_OPENAI_TOP_P", "1.0")
@@ -106,6 +108,9 @@ class EnvHelper:
         self.AZURE_OPENAI_STREAM = os.getenv("AZURE_OPENAI_STREAM", "true")
         self.AZURE_OPENAI_EMBEDDING_MODEL = os.getenv(
             "AZURE_OPENAI_EMBEDDING_MODEL", ""
+        )
+        self.AZURE_OPENAI_EMBEDDING_MODEL_NAME = os.getenv(
+            "AZURE_OPENAI_EMBEDDING_MODEL_NAME", ""
         )
         self.SHOULD_STREAM = (
             True if self.AZURE_OPENAI_STREAM.lower() == "true" else False

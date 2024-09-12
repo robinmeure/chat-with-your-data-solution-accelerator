@@ -11,14 +11,19 @@ import sys
 import requests
 from openai import AzureOpenAI, Stream, APIStatusError
 from openai.types.chat import ChatCompletionChunk
+from azure.mgmt.cognitiveservices import CognitiveServicesManagementClient
+from azure.identity import DefaultAzureCredential
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_openai import AzureChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
 from flask import Flask, Response, request, Request, jsonify
 from dotenv import load_dotenv
 from backend.batch.utilities.helpers.env_helper import EnvHelper
 from backend.batch.utilities.helpers.orchestrator_helper import Orchestrator
 from backend.batch.utilities.helpers.config.config_helper import ConfigHelper
 from backend.batch.utilities.helpers.config.conversation_flow import ConversationFlow
-from azure.mgmt.cognitiveservices import CognitiveServicesManagementClient
-from azure.identity import DefaultAzureCredential
+
 
 ERROR_429_MESSAGE = "We're currently experiencing a high number of requests for the service you're trying to access. Please wait a moment and try again."
 ERROR_GENERIC_MESSAGE = "An error occurred. Please try again. If the problem persists, please contact the site administrator."
@@ -454,5 +459,36 @@ def create_app():
         ConfigHelper.get_active_config_or_default.cache_clear()
         result = ConfigHelper.get_active_config_or_default()
         return jsonify({"ai_assistant_type": result.prompts.ai_assistant_type})
+
+    @app.route("/api/upload", methods=["POST"])
+    def upload():
+        """Upload a file to the server."""
+        file = request.files["file"]
+        file.save(path.join(app.static_folder, file.filename))
+        return jsonify({"filename": file.filename})
+
+    @app.route("/api/embed", methods=["GET"])
+    def embed():
+        file_path = "../data/Benefit_Options.pdf"
+        document = PyPDFLoader(file_path).load()
+
+        openai_client = AzureChatOpenAI(
+            azure_endpoint=env_helper.AZURE_OPENAI_ENDPOINT,
+            openai_api_version=env_helper.AZURE_OPENAI_API_VERSION,
+            azure_deployment=env_helper.AZURE_OPENAI_MODEL_NAME,
+            api_key=env_helper.AZURE_OPENAI_API_KEY,
+        )
+
+        # Define prompt
+        prompt = ChatPromptTemplate.from_messages(
+            [("system", "Write a concise summary of the following:\\n\\n{context}")]
+        )
+
+        # Instantiate chain
+        chain = create_stuff_documents_chain(openai_client, prompt)
+
+        # Invoke chain
+        result = chain.invoke({"context": document})
+        return jsonify(result)
 
     return app

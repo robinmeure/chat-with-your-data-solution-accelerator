@@ -8,7 +8,7 @@ param environmentName string
 param resourceToken string = toLower(uniqueString(subscription().id, environmentName, location))
 
 @description('Location for all resources.')
-param location string
+param location string = 'francecentral'
 
 @description('Name of App Service plan')
 param hostingPlanName string = 'hosting-plan-${resourceToken}'
