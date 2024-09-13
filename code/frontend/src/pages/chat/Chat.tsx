@@ -26,6 +26,7 @@ import {
   ToolMessageContent,
   ChatResponse,
   getAssistantTypeApi,
+  callConversationWithDocumentApi
 } from "../../api";
 import { Answer } from "../../components/Answer";
 import { QuestionInput } from "../../components/QuestionInput";
@@ -85,7 +86,7 @@ const Chat = () => {
 
     let result = {} as ChatResponse;
     try {
-      const response = await callConversationApi(
+      const response = await callConversationWithDocumentApi(
         request,
         abortController.signal
       );

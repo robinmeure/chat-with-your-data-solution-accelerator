@@ -467,8 +467,18 @@ def create_app():
         file.save(path.join(app.static_folder, file.filename))
         return jsonify({"filename": file.filename})
 
-    @app.route("/api/embed", methods=["GET"])
-    def embed():
+    @app.route("/api/embed", methods=["POST"])
+    async def embed():
+        # message_orchestrator = get_message_orchestrator()
+        user_message = request.json["messages"][-1]["content"]
+        # conversation_id = request.json["conversation_id"]
+        # user_assistant_messages = list(
+        #    filter(
+        #        lambda x: x["role"] in ("user", "assistant"),
+        #        request.json["messages"][0:-1],
+        #    )
+        # )
+
         file_path = "../data/Benefit_Options.pdf"
         document = PyPDFLoader(file_path).load()
 
@@ -481,7 +491,7 @@ def create_app():
 
         # Define prompt
         prompt = ChatPromptTemplate.from_messages(
-            [("system", "Write a concise summary of the following:\\n\\n{context}")]
+            [("user", user_message + "{context}")]
         )
 
         # Instantiate chain
@@ -489,6 +499,18 @@ def create_app():
 
         # Invoke chain
         result = chain.invoke({"context": document})
-        return jsonify(result)
+
+        # optimize the amount of messages and prevent duplicates
+        messages = request.json["messages"]
+        messages.append({"role": "assistant", "content": result})
+
+        response_obj = {
+            "id": "response.id",
+            "model": env_helper.AZURE_OPENAI_MODEL,
+            "created": "response.created",
+            "object": "response.object",
+            "choices": [{"messages": messages}],
+        }
+        return jsonify(response_obj), 200
 
     return app

@@ -64,3 +64,24 @@ export async function getAssistantTypeApi() {
       return null; // Return null or some default value in case of error
     }
   }
+
+  export async function callConversationWithDocumentApi(options: ConversationRequest, abortSignal: AbortSignal): Promise<Response> {
+    const response = await fetch("/api/embed", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            messages: options.messages,
+            conversation_id: options.id
+        }),
+        signal: abortSignal
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(JSON.stringify(errorData.error));
+    }
+
+    return response;
+}
