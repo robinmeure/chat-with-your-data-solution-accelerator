@@ -91,8 +91,8 @@ class EnvHelper:
         self.AZURE_AUTH_TYPE = os.getenv("AZURE_AUTH_TYPE", "keys")
         # Azure OpenAI
         self.AZURE_OPENAI_RESOURCE = os.getenv("AZURE_OPENAI_RESOURCE", "")
-        self.AZURE_OPENAI_MODEL = os.getenv("AZURE_OPENAI_MODEL", "")
-        self.AZURE_OPENAI_MODEL_NAME = os.getenv("AZURE_OPENAI_MODEL_NAME", "")
+        self.AZURE_OPENAI_MODEL = "gpt-4o"
+        self.AZURE_OPENAI_MODEL_NAME = "gpt-4o"
         self.AZURE_OPENAI_VISION_MODEL = os.getenv("AZURE_OPENAI_VISION_MODEL", "gpt-4")
         self.AZURE_OPENAI_TEMPERATURE = os.getenv("AZURE_OPENAI_TEMPERATURE", "0")
         self.AZURE_OPENAI_TOP_P = os.getenv("AZURE_OPENAI_TOP_P", "1.0")

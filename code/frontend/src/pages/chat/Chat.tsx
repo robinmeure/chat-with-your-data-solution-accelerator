@@ -18,6 +18,8 @@ import styles from "./Chat.module.css";
 import Azure from "../../assets/Azure.svg";
 import { multiLingualSpeechRecognizer } from "../../util/SpeechToText";
 
+
+
 import {
   ChatMessage,
   ConversationRequest,
@@ -26,7 +28,8 @@ import {
   ToolMessageContent,
   ChatResponse,
   getAssistantTypeApi,
-  callConversationWithDocumentApi
+  callConversationWithDocumentApi,
+  uploadDocument,
 } from "../../api";
 import { Answer } from "../../components/Answer";
 import { QuestionInput } from "../../components/QuestionInput";
@@ -64,7 +67,8 @@ const Chat = () => {
   const [assistantType, setAssistantType] = useState("");
   const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
   const [isTextToSpeachActive , setIsTextToSpeachActive] = useState(false);
-
+  const [FileName, setFileName] = useState<File>();
+  const [Embeddings, setEmbeddings] = useState<string>("");
 
   const makeApiRequest = async (question: string) => {
     lastQuestionRef.current = question;
@@ -74,9 +78,17 @@ const Chat = () => {
     const abortController = new AbortController();
     abortFuncs.current.unshift(abortController);
 
+    const formData = new FormData();
+    if (FileName !== null)
+    {
+      formData.append('file', FileName!);
+    }
+
+    debugger;
     const userMessage: ChatMessage = {
       role: "user",
       content: recognizedText || question,
+      attachment:FileName
     };
 
     const request: ConversationRequest = {
@@ -146,6 +158,37 @@ const Chat = () => {
   // Buffer to store recognized text
   let recognizedTextBuffer = "";
   let currentSentence = "";
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    event.preventDefault();
+
+    debugger;
+    const input = event.target;
+    if (!input.files || input.files.length === 0) {
+        console.error('No file selected');
+        return;
+    }
+
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setFileName(file);
+
+    // try {
+    //   const result = await uploadDocument(formData);
+
+    //   if (result) {
+    //       console.log('File uploaded successfully:', result);
+
+    //       // Handle the result as needed
+    //   } else {
+    //       console.error('File upload failed');
+    //   }
+    // } catch (error) {
+    //   console.error('Error uploading file:', error);
+    // }
+  };
 
   const startSpeechRecognition = async () => {
     if (!isRecognizing) {
@@ -412,6 +455,11 @@ const Chat = () => {
               role="button"
               tabIndex={0}
             />
+            <Stack>
+              <input type="file" onChange={handleFileUpload} className={styles.fileUploadContainer} />
+              {/* <span className={styles.fileUploadText}>{FileName}</span> */}
+            </Stack>
+
 
             <QuestionInput
               openPromptGeneratorClick={openPromptGeneratorClick}

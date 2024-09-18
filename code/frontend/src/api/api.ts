@@ -43,38 +43,42 @@ export async function getAssistantTypeApi() {
     }
   }
 
-  export async function uploadDocument()
+  export async function uploadDocument(formData: FormData)
   {
     try {
         const response = await fetch("/api/upload", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            body: formData
         });
 
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
 
-      const config = await response.json(); // Parse JSON response
-      return config;
+      const embeddings = await response.json(); // Parse JSON response
+      return embeddings;
     } catch (error) {
-      console.error('Failed to fetch configuration:', error);
+      console.error('Failed to upload:', error);
       return null; // Return null or some default value in case of error
     }
   }
 
   export async function callConversationWithDocumentApi(options: ConversationRequest, abortSignal: AbortSignal): Promise<Response> {
+    const formData = new FormData();
+
+    // Append the conversation request data as a JSON string
+    formData.append("conversationData", JSON.stringify({
+        messages: options.messages,
+        conversation_id: options.id
+    }));
+
+    // Append the file
+    let file = options.messages[0].attachment!;
+    formData.append("file", file);
+
     const response = await fetch("/api/embed", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            messages: options.messages,
-            conversation_id: options.id
-        }),
+        body: formData,
         signal: abortSignal
     });
 

@@ -24,6 +24,7 @@ export type ChatMessage = {
     role: string;
     content: string;
     end_turn?: boolean;
+    attachment?: File;
 };
 
 export enum ChatCompletionType {

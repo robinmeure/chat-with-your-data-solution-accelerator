@@ -3,11 +3,13 @@ This module creates a Flask app that serves the web interface for the chatbot.
 """
 
 import functools
+import io
 import json
 import logging
 import mimetypes
 from os import path
 import sys
+import tempfile
 import requests
 from openai import AzureOpenAI, Stream, APIStatusError
 from openai.types.chat import ChatCompletionChunk
@@ -460,27 +462,34 @@ def create_app():
         result = ConfigHelper.get_active_config_or_default()
         return jsonify({"ai_assistant_type": result.prompts.ai_assistant_type})
 
-    @app.route("/api/upload", methods=["POST"])
-    def upload():
-        """Upload a file to the server."""
-        file = request.files["file"]
-        file.save(path.join(app.static_folder, file.filename))
-        return jsonify({"filename": file.filename})
-
     @app.route("/api/embed", methods=["POST"])
     async def embed():
         # message_orchestrator = get_message_orchestrator()
-        user_message = request.json["messages"][-1]["content"]
-        # conversation_id = request.json["conversation_id"]
+        conversation_data = request.form["conversationData"]
+        user_attachment = request.files["file"]
+
+        # Parse the JSON string from conversationData
+        conversation = json.loads(conversation_data)
+        messages = conversation.get("messages", [])
+
+        user_message = messages[-1]["content"] if messages else "summarize"
+        conversation_id = conversation.get("conversation_id", "")
         # user_assistant_messages = list(
-        #    filter(
-        #        lambda x: x["role"] in ("user", "assistant"),
-        #        request.json["messages"][0:-1],
-        #    )
+        #     filter(
+        #         lambda x: x["role"] in ("user", "assistant"),
+        #         messages[0:-1],
+        #     )
         # )
 
-        file_path = "../data/Benefit_Options.pdf"
-        document = PyPDFLoader(file_path).load()
+        # getting the file, saving it to a temporary file
+        # and feeding it to the document loader
+        file = user_attachment
+        file_content = io.BytesIO(file.read())
+        with tempfile.NamedTemporaryFile() as fp:
+            fp.write(file_content.getvalue())
+            fp.seek(0)  # move the cursor to read the file
+            pdf_loader = PyPDFLoader(fp.name)
+            document = pdf_loader.load()
 
         openai_client = AzureChatOpenAI(
             azure_endpoint=env_helper.AZURE_OPENAI_ENDPOINT,
@@ -501,16 +510,67 @@ def create_app():
         result = chain.invoke({"context": document})
 
         # optimize the amount of messages and prevent duplicates
-        messages = request.json["messages"]
         messages.append({"role": "assistant", "content": result})
 
         response_obj = {
-            "id": "response.id",
+            "id": conversation_id,
             "model": env_helper.AZURE_OPENAI_MODEL,
             "created": "response.created",
             "object": "response.object",
             "choices": [{"messages": messages}],
         }
         return jsonify(response_obj), 200
+
+    # @app.route("/api/upload", methods=["POST"])
+    # async def upload():
+    #     file = request.files["file"]
+    #     file_content = io.BytesIO(file.read())
+    #     with tempfile.NamedTemporaryFile() as fp:
+    #         fp.write(file_content.getvalue())
+    #         fp.seek(0)  # move the cursor to read the file
+    #         pdf_loader = PyPDFLoader(fp.name)
+    #         document = pdf_loader.load()
+
+    #     # message_orchestrator = get_message_orchestrator()
+    #     ##user_message = request.json["messages"][-1]["content"]
+    #     # conversation_id = request.json["conversation_id"]
+    #     # user_assistant_messages = list(
+    #     #    filter(
+    #     #        lambda x: x["role"] in ("user", "assistant"),
+    #     #        request.json["messages"][0:-1],
+    #     #    )
+    #     # )
+    #       # Load the PDF content using PyPDFLoader
+    #    # file_path = "../data/Benefit_Options.pdf"
+
+    #     openai_client = AzureChatOpenAI(
+    #         azure_endpoint=env_helper.AZURE_OPENAI_ENDPOINT,
+    #         openai_api_version=env_helper.AZURE_OPENAI_API_VERSION,
+    #         azure_deployment=env_helper.AZURE_OPENAI_MODEL_NAME,
+    #         api_key=env_helper.AZURE_OPENAI_API_KEY,
+    #     )
+
+    #     # Define prompt
+    #     prompt = ChatPromptTemplate.from_messages(
+    #         [("user", user_message + "{context}")]
+    #     )
+
+    #     # Instantiate chain
+    #     chain = create_stuff_documents_chain(openai_client, prompt)
+
+    #     # Invoke chain
+    #     result = chain.invoke({"context": document})
+
+    #     # optimize the amount of messages and prevent duplicates
+    #     # messages = request.json["messages"]
+    #     messages = ({"role": "assistant", "content": result})
+
+    #     response_obj = {
+    #         "id": "response.id",
+    #         "model": env_helper.AZURE_OPENAI_MODEL,
+    #         "created": "response.created",
+    #         "object": "response.object",
+    #         "choices": [{"messages": messages}],
+    #     }
 
     return app
