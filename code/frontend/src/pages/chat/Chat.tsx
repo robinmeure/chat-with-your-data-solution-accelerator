@@ -84,7 +84,7 @@ const Chat = () => {
       formData.append('file', FileName!);
     }
 
-    debugger;
+
     const userMessage: ChatMessage = {
       role: "user",
       content: recognizedText || question,
@@ -96,12 +96,24 @@ const Chat = () => {
       messages: [...answers, userMessage],
     };
 
+    debugger;
     let result = {} as ChatResponse;
     try {
-      const response = await callConversationWithDocumentApi(
-        request,
-        abortController.signal
-      );
+      let response;
+      if (FileName === null || FileName === undefined)
+      {
+        response = await callConversationApi(
+          request,
+          abortController.signal
+        );
+      }
+      else
+      {
+        response = await callConversationWithDocumentApi(
+          request,
+          abortController.signal
+        );
+      }
       if (response?.body) {
         const reader = response.body.getReader();
         let runningText = "";
@@ -354,7 +366,7 @@ const Chat = () => {
           ) : (
             <div
               className={styles.chatMessageStream}
-              style={{ marginBottom: isLoading ? "40px" : "0px" }}
+              style={{ marginBottom: "40px"  }}
             >
               {answers.map((answer, index) => (
                 <>

@@ -207,6 +207,127 @@ def conversation_with_data(conversation: Request, env_helper: EnvHelper):
     )
 
 
+def conversation_with_data_withoutrequest(messages, env_helper: EnvHelper):
+    """This function streams the response from Azure OpenAI with data."""
+    if env_helper.is_auth_type_keys():
+        openai_client = AzureOpenAI(
+            azure_endpoint=env_helper.AZURE_OPENAI_ENDPOINT,
+            api_version=env_helper.AZURE_OPENAI_API_VERSION,
+            api_key=env_helper.AZURE_OPENAI_API_KEY,
+        )
+    else:
+        openai_client = AzureOpenAI(
+            azure_endpoint=env_helper.AZURE_OPENAI_ENDPOINT,
+            api_version=env_helper.AZURE_OPENAI_API_VERSION,
+            azure_ad_token_provider=env_helper.AZURE_TOKEN_PROVIDER,
+        )
+
+    # Azure OpenAI takes the deployment name as the model name, "AZURE_OPENAI_MODEL" means
+    # deployment name.
+    response = openai_client.chat.completions.create(
+        model=env_helper.AZURE_OPENAI_MODEL,
+        messages=messages,
+        temperature=float(env_helper.AZURE_OPENAI_TEMPERATURE),
+        max_tokens=int(env_helper.AZURE_OPENAI_MAX_TOKENS),
+        top_p=float(env_helper.AZURE_OPENAI_TOP_P),
+        stop=(
+            env_helper.AZURE_OPENAI_STOP_SEQUENCE.split("|")
+            if env_helper.AZURE_OPENAI_STOP_SEQUENCE
+            else None
+        ),
+        stream=env_helper.SHOULD_STREAM,
+        extra_body={
+            "data_sources": [
+                {
+                    "type": "azure_search",
+                    "parameters": {
+                        "authentication": (
+                            {
+                                "type": "api_key",
+                                "key": env_helper.AZURE_SEARCH_KEY,
+                            }
+                            if env_helper.is_auth_type_keys()
+                            else {
+                                "type": "system_assigned_managed_identity",
+                            }
+                        ),
+                        "endpoint": env_helper.AZURE_SEARCH_SERVICE,
+                        "index_name": env_helper.AZURE_SEARCH_INDEX,
+                        "fields_mapping": {
+                            "content_fields": (
+                                env_helper.AZURE_SEARCH_CONTENT_COLUMN.split("|")
+                                if env_helper.AZURE_SEARCH_CONTENT_COLUMN
+                                else []
+                            ),
+                            "vector_fields": [
+                                env_helper.AZURE_SEARCH_CONTENT_VECTOR_COLUMN
+                            ],
+                            "title_field": env_helper.AZURE_SEARCH_TITLE_COLUMN or None,
+                            "url_field": env_helper.AZURE_SEARCH_URL_COLUMN or None,
+                            "filepath_field": (
+                                env_helper.AZURE_SEARCH_FILENAME_COLUMN or None
+                            ),
+                        },
+                        "filter": env_helper.AZURE_SEARCH_FILTER,
+                        "in_scope": env_helper.AZURE_SEARCH_ENABLE_IN_DOMAIN,
+                        "top_n_documents": env_helper.AZURE_SEARCH_TOP_K,
+                        "embedding_dependency": {
+                            "type": "deployment_name",
+                            "deployment_name": env_helper.AZURE_OPENAI_EMBEDDING_MODEL,
+                        },
+                        "query_type": (
+                            "vector_semantic_hybrid"
+                            if env_helper.AZURE_SEARCH_USE_SEMANTIC_SEARCH
+                            else "vector_simple_hybrid"
+                        ),
+                        "semantic_configuration": (
+                            env_helper.AZURE_SEARCH_SEMANTIC_SEARCH_CONFIG
+                            if env_helper.AZURE_SEARCH_USE_SEMANTIC_SEARCH
+                            and env_helper.AZURE_SEARCH_SEMANTIC_SEARCH_CONFIG
+                            else ""
+                        ),
+                        "role_information": env_helper.AZURE_OPENAI_SYSTEM_MESSAGE,
+                    },
+                }
+            ]
+        },
+    )
+
+    if not env_helper.SHOULD_STREAM:
+        response_obj = {
+            "id": response.id,
+            "model": response.model,
+            "created": response.created,
+            "object": response.object,
+            "choices": [
+                {
+                    "messages": [
+                        {
+                            "content": json.dumps(
+                                response.choices[0].message.model_extra["context"],
+                                ensure_ascii=False,
+                            ),
+                            "end_turn": False,
+                            "role": "tool",
+                        },
+                        {
+                            "end_turn": True,
+                            "content": response.choices[0].message.content,
+                            "role": "assistant",
+                        },
+                    ]
+                }
+            ],
+        }
+
+        return response_obj
+
+    return Response(
+        stream_with_data(response),
+        mimetype="application/json-lines",
+    )
+
+
 def stream_without_data(response: Stream[ChatCompletionChunk]):
     """This function streams the response from Azure OpenAI without data."""
     response_text = ""
@@ -464,7 +585,6 @@ def create_app():
 
     @app.route("/api/embed", methods=["POST"])
     async def embed():
-        # message_orchestrator = get_message_orchestrator()
         conversation_data = request.form["conversationData"]
         user_attachment = request.files["file"]
 
@@ -473,7 +593,7 @@ def create_app():
         messages = conversation.get("messages", [])
 
         user_message = messages[-1]["content"] if messages else "summarize"
-        conversation_id = conversation.get("conversation_id", "")
+        # conversation_id = conversation.get("conversation_id", "")
         # user_assistant_messages = list(
         #     filter(
         #         lambda x: x["role"] in ("user", "assistant"),
@@ -491,35 +611,45 @@ def create_app():
             pdf_loader = PyPDFLoader(fp.name)
             document = pdf_loader.load()
 
-        openai_client = AzureChatOpenAI(
+        openai_chatClient = AzureChatOpenAI(
             azure_endpoint=env_helper.AZURE_OPENAI_ENDPOINT,
             openai_api_version=env_helper.AZURE_OPENAI_API_VERSION,
             azure_deployment=env_helper.AZURE_OPENAI_MODEL_NAME,
             api_key=env_helper.AZURE_OPENAI_API_KEY,
         )
 
-        # Define prompt
+        # Define prompt OLD
         prompt = ChatPromptTemplate.from_messages(
-            [("user", user_message + "{context}")]
+            [
+                (
+                    "assistant",
+                    "summarize and categorize this document and a summary and return all the categories which are found, if there are no categories found then return none but do return a summary."
+                    + "{context}",
+                )
+            ]
         )
 
         # Instantiate chain
-        chain = create_stuff_documents_chain(openai_client, prompt)
+        chain = create_stuff_documents_chain(openai_chatClient, prompt)
 
         # Invoke chain
         result = chain.invoke({"context": document})
 
         # optimize the amount of messages and prevent duplicates
         messages.append({"role": "assistant", "content": result})
+        messages.append({"role": "user", "content": user_message})
 
-        response_obj = {
-            "id": conversation_id,
-            "model": env_helper.AZURE_OPENAI_MODEL,
-            "created": "response.created",
-            "object": "response.object",
-            "choices": [{"messages": messages}],
-        }
-        return jsonify(response_obj), 200
+        response = conversation_with_data_withoutrequest(messages, env_helper)
+
+        # response_obj = {
+        #     "id": conversation_id,
+        #     "model": env_helper.AZURE_OPENAI_MODEL,
+        #     "created": "response.created",
+        #     "object": "response.object",
+        #     "choices": [{"messages": messages}],
+        # }
+        return response, 200
+        return jsonify(response), 200
 
     # @app.route("/api/upload", methods=["POST"])
     # async def upload():

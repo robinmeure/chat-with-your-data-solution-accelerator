@@ -27,6 +27,12 @@ export type ChatMessage = {
     attachment?: File;
 };
 
+export type ChatMessageOpenAI = {
+    role: string;
+    content: string;
+    end_turn?: boolean;
+};
+
 export enum ChatCompletionType {
     ChatCompletion = "chat.completion",
     ChatCompletionChunk = "chat.completion.chunk"

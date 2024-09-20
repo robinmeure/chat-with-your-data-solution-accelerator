@@ -1,4 +1,4 @@
-import { ConversationRequest } from "./models";
+import { ConversationRequest, ChatMessageOpenAI } from "./models";
 
 
 export async function callConversationApi(options: ConversationRequest, abortSignal: AbortSignal): Promise<Response> {
@@ -66,15 +66,25 @@ export async function getAssistantTypeApi() {
   export async function callConversationWithDocumentApi(options: ConversationRequest, abortSignal: AbortSignal): Promise<Response> {
     const formData = new FormData();
 
+    var simplifiedMessages = options.messages.map((message) => {
+        return {
+            role: message.role,
+            content: message.content,
+            end_turn: message.end_turn
+        }
+    });
     // Append the conversation request data as a JSON string
     formData.append("conversationData", JSON.stringify({
-        messages: options.messages,
+        messages: simplifiedMessages,
         conversation_id: options.id
     }));
 
-    // Append the file
-    let file = options.messages[0].attachment!;
-    formData.append("file", file);
+    // Loop through all messages and append non-null attachments to FormData
+    options.messages.forEach(message => {
+      if (message.attachment) {
+          formData.append("file", message.attachment);
+      }
+    });
 
     const response = await fetch("/api/embed", {
         method: "POST",

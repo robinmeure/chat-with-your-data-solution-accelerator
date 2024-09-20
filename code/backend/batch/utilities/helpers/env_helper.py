@@ -105,7 +105,7 @@ class EnvHelper:
         self.AZURE_OPENAI_API_VERSION = os.getenv(
             "AZURE_OPENAI_API_VERSION", "2024-02-01"
         )
-        self.AZURE_OPENAI_STREAM = os.getenv("AZURE_OPENAI_STREAM", "true")
+        self.AZURE_OPENAI_STREAM = os.getenv("AZURE_OPENAI_STREAM", "false")
         self.AZURE_OPENAI_EMBEDDING_MODEL = os.getenv(
             "AZURE_OPENAI_EMBEDDING_MODEL", ""
         )
@@ -113,7 +113,8 @@ class EnvHelper:
             "AZURE_OPENAI_EMBEDDING_MODEL_NAME", ""
         )
         self.SHOULD_STREAM = (
-            True if self.AZURE_OPENAI_STREAM.lower() == "true" else False
+            # True if self.AZURE_OPENAI_STREAM.lower() == "true" else False
+            False
         )
 
         self.AZURE_TOKEN_PROVIDER = get_bearer_token_provider(
