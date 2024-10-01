@@ -8,3 +8,7 @@ content-type: application/json
 ### Get Langchain
 GET http://127.0.0.1:5050/api/embed
 content-type: application/json
+
+### Get Assistanttype
+GET http://localhost:5050/api/assistanttype
+content-type: application/json

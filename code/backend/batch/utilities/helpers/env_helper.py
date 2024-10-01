@@ -91,8 +91,8 @@ class EnvHelper:
         self.AZURE_AUTH_TYPE = os.getenv("AZURE_AUTH_TYPE", "keys")
         # Azure OpenAI
         self.AZURE_OPENAI_RESOURCE = os.getenv("AZURE_OPENAI_RESOURCE", "")
-        self.AZURE_OPENAI_MODEL = "gpt-4o"
-        self.AZURE_OPENAI_MODEL_NAME = "gpt-4o"
+        self.AZURE_OPENAI_MODEL = "gpt4"
+        self.AZURE_OPENAI_MODEL_NAME = "gpt4"
         self.AZURE_OPENAI_VISION_MODEL = os.getenv("AZURE_OPENAI_VISION_MODEL", "gpt-4")
         self.AZURE_OPENAI_TEMPERATURE = os.getenv("AZURE_OPENAI_TEMPERATURE", "0")
         self.AZURE_OPENAI_TOP_P = os.getenv("AZURE_OPENAI_TOP_P", "1.0")
@@ -103,18 +103,18 @@ class EnvHelper:
             "You are an AI assistant that helps people find information.",
         )
         self.AZURE_OPENAI_API_VERSION = os.getenv(
-            "AZURE_OPENAI_API_VERSION", "2024-02-01"
+            "AZURE_OPENAI_API_VERSION", "2023-03-15"
         )
-        self.AZURE_OPENAI_STREAM = os.getenv("AZURE_OPENAI_STREAM", "false")
+        self.AZURE_OPENAI_STREAM = os.getenv("AZURE_OPENAI_STREAM", "true")
         self.AZURE_OPENAI_EMBEDDING_MODEL = os.getenv(
-            "AZURE_OPENAI_EMBEDDING_MODEL", ""
+            "AZURE_OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"
         )
         self.AZURE_OPENAI_EMBEDDING_MODEL_NAME = os.getenv(
-            "AZURE_OPENAI_EMBEDDING_MODEL_NAME", ""
+            "AZURE_OPENAI_EMBEDDING_MODEL_NAME", "text-embedding-ada-002"
         )
         self.SHOULD_STREAM = (
             # True if self.AZURE_OPENAI_STREAM.lower() == "true" else False
-            False
+            True
         )
 
         self.AZURE_TOKEN_PROVIDER = get_bearer_token_provider(

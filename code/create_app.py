@@ -10,6 +10,7 @@ import mimetypes
 from os import path
 import sys
 import tempfile
+from typing import List, Dict
 import requests
 from openai import AzureOpenAI, Stream, APIStatusError
 from openai.types.chat import ChatCompletionChunk
@@ -17,7 +18,11 @@ from azure.mgmt.cognitiveservices import CognitiveServicesManagementClient
 from azure.identity import DefaultAzureCredential
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_openai import AzureChatOpenAI
+from langchain.chains import create_retrieval_chain
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores.faiss import FAISS
+from langchain_community.vectorstores.azuresearch import AzureSearch
 from langchain_core.prompts import ChatPromptTemplate
 from flask import Flask, Response, request, Request, jsonify
 from dotenv import load_dotenv
@@ -582,28 +587,9 @@ def create_app():
         ConfigHelper.get_active_config_or_default.cache_clear()
         result = ConfigHelper.get_active_config_or_default()
         return jsonify({"ai_assistant_type": result.prompts.ai_assistant_type})
+        # return jsonify({"ai_assistant_type": "assistant"})
 
-    @app.route("/api/embed", methods=["POST"])
-    async def embed():
-        conversation_data = request.form["conversationData"]
-        user_attachment = request.files["file"]
-
-        # Parse the JSON string from conversationData
-        conversation = json.loads(conversation_data)
-        messages = conversation.get("messages", [])
-
-        user_message = messages[-1]["content"] if messages else "summarize"
-        # conversation_id = conversation.get("conversation_id", "")
-        # user_assistant_messages = list(
-        #     filter(
-        #         lambda x: x["role"] in ("user", "assistant"),
-        #         messages[0:-1],
-        #     )
-        # )
-
-        # getting the file, saving it to a temporary file
-        # and feeding it to the document loader
-        file = user_attachment
+    def get_docs(file):
         file_content = io.BytesIO(file.read())
         with tempfile.NamedTemporaryFile() as fp:
             fp.write(file_content.getvalue())
@@ -611,45 +597,161 @@ def create_app():
             pdf_loader = PyPDFLoader(fp.name)
             document = pdf_loader.load()
 
-        openai_chatClient = AzureChatOpenAI(
-            azure_endpoint=env_helper.AZURE_OPENAI_ENDPOINT,
-            openai_api_version=env_helper.AZURE_OPENAI_API_VERSION,
-            azure_deployment=env_helper.AZURE_OPENAI_MODEL_NAME,
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=200,
+            chunk_overlap=50
+        )
+        splitdocs = splitter.split_documents(document)
+        return splitdocs
+
+    def getDocsFromExistingVectors(query):
+        embeddings: AzureOpenAIEmbeddings = AzureOpenAIEmbeddings(
             api_key=env_helper.AZURE_OPENAI_API_KEY,
+            azure_endpoint=env_helper.AZURE_OPENAI_ENDPOINT
+        )
+        index_name: str = env_helper.AZURE_SEARCH_INDEX
+        vector_store: AzureSearch = AzureSearch(
+            azure_search_endpoint=env_helper.AZURE_SEARCH_SERVICE,
+            index_name=index_name,
+            azure_search_key=env_helper.AZURE_SEARCH_KEY,
+            embeddings=embeddings.embed_query,
+            embedding_function=embeddings.embed_query
         )
 
-        # Define prompt OLD
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "assistant",
-                    "summarize and categorize this document and a summary and return all the categories which are found, if there are no categories found then return none but do return a summary."
-                    + "{context}",
-                )
-            ]
+        docs = vector_store.similarity_search(
+            query=query,
+            k=3,
+            search_type="similarity",
+        )
+        return docs
+
+    def create_chain(vectorStore):
+        model = AzureChatOpenAI(
+            temperature=0.4,
+            model=env_helper.AZURE_OPENAI_MODEL,
+            api_version=env_helper.AZURE_OPENAI_API_VERSION,
+            api_key=env_helper.AZURE_OPENAI_API_KEY,
+            azure_endpoint=env_helper.AZURE_OPENAI_ENDPOINT
         )
 
-        # Instantiate chain
-        chain = create_stuff_documents_chain(openai_chatClient, prompt)
+        prompt = ChatPromptTemplate.from_template("""
+        Answer the user's question.
+        Context: {context}
+        Question: {input}
+        """)
 
-        # Invoke chain
-        result = chain.invoke({"context": document})
+        # chain = prompt | model
+        document_chain = create_stuff_documents_chain(
+            llm=model,
+            prompt=prompt
+        )
 
-        # optimize the amount of messages and prevent duplicates
-        messages.append({"role": "assistant", "content": result})
-        messages.append({"role": "user", "content": user_message})
+        retriever = vectorStore.as_retriever()
 
-        response = conversation_with_data_withoutrequest(messages, env_helper)
+        retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
-        # response_obj = {
-        #     "id": conversation_id,
-        #     "model": env_helper.AZURE_OPENAI_MODEL,
-        #     "created": "response.created",
-        #     "object": "response.object",
-        #     "choices": [{"messages": messages}],
-        # }
-        return response, 200
-        return jsonify(response), 200
+        return retrieval_chain
+
+    def create_vector_store(docs):
+        embedding = AzureOpenAIEmbeddings(
+            api_key=env_helper.AZURE_OPENAI_API_KEY,
+            azure_endpoint=env_helper.AZURE_OPENAI_ENDPOINT
+        )
+        vectorStore = FAISS.from_documents(docs, embedding=embedding)
+        return vectorStore
+
+    @app.route("/api/embed", methods=["POST"])
+    async def embed():
+        # Get the file and load it, chunk it and embed it
+        user_attachment = request.files["file"]
+        localDocument = get_docs(user_attachment)
+
+        # Get the conversation
+        conversation_data = request.form["conversationData"]
+
+        # Parse the JSON string from conversationData
+        conversation = json.loads(conversation_data)
+        messages = conversation.get("messages", [])
+
+        user_message = messages[-1]["content"] if messages else "summarize"
+        conversation_id = conversation.get("conversation_id", "")
+
+        azureDocs = getDocsFromExistingVectors(user_message)
+
+        # Combine azureDocs with docs
+        combined_docs = localDocument + azureDocs
+
+        # Create vector store with combined documents
+        vectorStore = create_vector_store(combined_docs)
+
+       # Create chain with the updated vector store
+        chain = create_chain(vectorStore)
+
+        #vectorStore = create_vector_store(docs)
+        #chain = create_chain(vectorStore)
+
+        response = chain.invoke({
+            "input": user_message,
+        })
+        #https://openai-bllgybdpxbasm.openai.azure.com/openai/deployments/gpt4/chat/completions?api-version=2023-03-15-preview
+        #https://openai-bllgybdpxbasm.openai.azure.com//openai/deployments/gpt4/chat/completions?api-version=2023-03-15
+        #https://openai-c7e77owoeas3o.openai.azure.com/openai/deployments/gpt4/chat/completions?api-version=2023-03-15-preview
+
+        # messages = [
+        #     {
+        #         "role": "tool",
+        #         "content": {"citations": [], "intent": user_message},
+        #         "end_turn": False,
+        #     }
+        # ]
+
+
+        # class Document:
+        #     def __init__(self, metadata: Dict, page_content: str):
+        #         self.metadata = metadata
+        #         self.page_content = page_content
+        # def convert_documents_to_citations(documents: List[Document]):
+        #     for doc in documents:
+        #         messages[0]["content"]["citations"].append(
+        #         {
+        #             "content": doc.page_content,
+        #             "id": doc.metadata.id,
+        #             "metadata": {
+        #                 "offset": doc.offset,
+        #                 "source": doc.source,
+        #                 "markdown_url": doc.get_markdown_url(),
+        #                 "title": doc.title,
+        #                 "original_url": doc.source,  # TODO: do we need this?
+        #                 "chunk": doc.chunk,
+        #                 "key": doc.id,
+        #                 "filename": doc.get_filename(),
+        #             },
+        #         }
+        #     )
+
+        # convert_documents_to_citations(response["context"])
+        messages.append({"role": "assistant", "content": response["answer"]})
+
+        # _messages = await message_orchestrator.handle_message(
+        #     user_message=user_message,
+        #     chat_history=user_assistant_messages,
+        #     conversation_id=conversation_id,
+        #     orchestrator=get_orchestrator_config()
+        # )
+
+        response_obj = {
+            "id": "response.id",
+            "model": env_helper.AZURE_OPENAI_MODEL,
+            "created": "response.created",
+            "object": "response.object",
+            "choices": [{"messages": messages}],
+        }
+
+        return jsonify(response_obj), 200
+
+
+        #return Response(response_obj, mimetype="application/json-lines")
+        return jsonify(response_obj), 200
 
     # @app.route("/api/upload", methods=["POST"])
     # async def upload():
