@@ -62,6 +62,7 @@ export const QuestionInput = ({
   useEffect(() => {
     if (prompt) {
       setQuestion(prompt);
+      prompt = "";
     }
   });
 

@@ -96,7 +96,6 @@ const Chat = () => {
       messages: [...answers, userMessage],
     };
 
-    debugger;
     let result = {} as ChatResponse;
     try {
       let response;
@@ -174,7 +173,6 @@ const Chat = () => {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     event.preventDefault();
 
-    debugger;
     const input = event.target;
     if (!input.files || input.files.length === 0) {
         console.error('No file selected');
@@ -187,19 +185,6 @@ const Chat = () => {
 
     setFileName(file);
 
-    // try {
-    //   const result = await uploadDocument(formData);
-
-    //   if (result) {
-    //       console.log('File uploaded successfully:', result);
-
-    //       // Handle the result as needed
-    //   } else {
-    //       console.error('File upload failed');
-    //   }
-    // } catch (error) {
-    //   console.error('Error uploading file:', error);
-    // }
   };
 
   const startSpeechRecognition = async () => {
